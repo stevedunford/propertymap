@@ -29,8 +29,7 @@
 
     var map;
     var baseUrl='proxy.php?'
-    var region = "Otago";
-    var district = "Dunedin";
+    var region, district;
     var priceMin = 0;
     var priceMax = 400000;
     var page = 1;
@@ -50,7 +49,7 @@
              "Marlborough" : 53, "Kaikoura" : 54
         },
         "West Coast" : {
-            "Buller" : 55, "Grey" : 56, "Westland" : 57, 
+            "Buller District" : 55, "Grey District" : 56, "Westland District" : 57, 
         },
         "Canterbury" : {
             "Hurunui" : 58, "Waimakariri" : 59, "Christchurch" : 60, "Banks Peninsula" : 61, "Selwyn" : 62
@@ -73,14 +72,9 @@
 
     function initialize() {
         $('body').css('background-image', ''); // Reset background in case spinner still running
-        geocode("New Zealand"); // Test geocoding of districts
-        var geocoder = new google.maps.Geocoder();
-        var latlng   = new google.maps.LatLng(-45.28, 169.66);
         page = 1;
         entryCount = 0;
         var myOptions = {
-            zoom: 9,
-            center: latlng,
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
         
@@ -107,14 +101,16 @@
         });
         $("#dateLimit").prop("checked", false);
 
-        // Populate the region selector list
-        $('#selectRegion').empty(); // Clear the list first
-        $.each (regionList, function (index, value) {
-            $('#selectRegion').append($('<option>', {
-                value: regions[value],
-                text: value }));
-        });
-        changeRegion();
+        // Populate the region selector list if its not already
+        if ($('#selectRegion')[0].options.length == 0) {
+            $.each (regionList, function (index, value) {
+                $('#selectRegion').append($('<option>', {
+                    value: regions[value],
+                    text: value }));
+            });
+            changeRegion();
+        }
+        changeDistrict();
     }
 
 
@@ -315,7 +311,10 @@
 
     function geocode(address) {
         var geo = new google.maps.Geocoder();
-        var retval = geo.geocode({ 'address': address, 'region': 'NZ' }, function(results, status) {
+        var retval = geo.geocode({ 
+            'address': address, 
+            'region': 'NZ'
+        }, function(results, status) {
             if (status == google.maps.GeocoderStatus.OK) {
                 map.fitBounds(results[0].geometry.bounds);
                 window.console.log(results[0]);
