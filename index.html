@@ -40,8 +40,11 @@
     var ignorePrice = false;
     var day = 86400000; // 1 day in milliseconds
     var notBefore = 0;
-    var regions = {"Nelson / Tasman" : 8, "Marlborough" : 7, "West Coast" : 16, "Canterbury" : 3, "Otago" : 10, "Southland" : 11};
+    var regions = {"Canterbury" : 3, "Nelson / Tasman" : 8, "Marlborough" : 7, "West Coast" : 16, "Otago" : 10, "Southland" : 11};
     var districts = {
+        "Canterbury" : {
+            "Christchurch District" : 60, "Hurunui District" : 58, "Waimakariri District" : 59, "Banks Peninsula District" : 61, "Selwyn District" : 62
+        },
         "Nelson / Tasman" : {
             "Nelson District" : 52, "Tasman District" : 51
         },
@@ -49,16 +52,13 @@
              "Marlborough District" : 53, "Kaikoura District" : 54
         },
         "West Coast" : {
-            "Buller District" : 55, "Grey District" : 56, "Westland District" : 57, 
-        },
-        "Canterbury" : {
-            "Hurunui District" : 58, "Waimakariri District" : 59, "Christchurch District" : 60, "Banks Peninsula District" : 61, "Selwyn District" : 62
+            "Grey District" : 56, "Buller District" : 55, "Westland District" : 57, 
         },
         "Otago" : {
-            "Waitaki District" : 68, "Central Otago District" : 69, "Queenstown Lakes District" : 70, "Dunedin" : 71, "Clutha District" : 72, "South Otago" : 79
+            "Dunedin" : 71, "Waitaki District" : 68, "Central Otago District" : 69, "Queenstown Lakes District" : 70, "Clutha District" : 72, "South Otago" : 79
         },
         "Southland" : {
-            "Catlins" : 78, "Gore" : 74, "Invercargill" : 75, "Southland" : 73
+            "Invercargill" : 75, "Catlins" : 78, "Gore" : 74, "Southland" : 73
         }
         
     };
