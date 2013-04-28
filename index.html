@@ -35,7 +35,7 @@
     var page = 1;
     var entryCount = 0;
     var landType = "Residential";
-    var bedrooms = 0;
+    var bedrooms;
     var error = 0;
     var ignorePrice = false;
     var day = 86400000; // 1 day in milliseconds
@@ -156,6 +156,7 @@
         if (priceMax > 0 && !ignorePrice) {
             thisUrl += '&price_max=' + priceMax;
         }
+        bedrooms = parseInt(numRooms.options[numRooms.selectedIndex].value);
         if (bedrooms > 0) {
             thisUrl += '&bedrooms_min=' + bedrooms;
         }
@@ -349,12 +350,6 @@
                 text: value }));
         });
         changeDistrict(); // Update the map based on district choice
-    }
-
-
-    function changeBedrooms() {
-        bedrooms = parseInt(numRooms.options[numRooms.selectedIndex].value);
-        window.console.log('Bedrooms set to minimum of ' + bedrooms);
     }
 
 
