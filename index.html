@@ -29,28 +29,46 @@
 
     var map;
     var baseUrl='proxy.php?'
-    var region = 10;
-    var district = 69;
+    var region = "Otago";
+    var district = "Dunedin";
     var priceMin = 0;
-    var priceMax = 500000;
+    var priceMax = 400000;
     var page = 1;
     var entryCount = 0;
     var landType = "Residential";
-    var bedrooms = -1;
+    var bedrooms = 0;
     var error = 0;
     var ignorePrice = false;
     var day = 86400000; // 1 day in milliseconds
     var notBefore = 0;
-    var regions = {"Otago" : 10, "Canterbury" : 3};
-    var districts = {"Otago" : {"Waitaki District" : 68, "Central Otago District" : 69, "Queenstown Lakes District" : 70, "Dunedin City" : 71, "Clutha District" : 72, "South Otago District" : 79}, "Canterbury" : {"Hurunui" : 58, "Waimakariri District" : 59, "Christchurch" : 60, "Banks Peninsula" : 61, "Selwyn District" : 62}};
+    var regions = {"Nelson / Tasman" : 8, "Marlborough" : 7, "West Coast" : 16, "Canterbury" : 3, "Otago" : 10, "Southland" : 11};
+    var districts = {
+        "Nelson / Tasman" : {
+            "Nelson" : 52, "Tasman District" : 51
+        },
+        "Marlborough" : {
+             "Marlborough" : 53, "Kaikoura" : 54
+        },
+        "West Coast" : {
+            "Buller" : 55, "Grey" : 56, "Westland" : 57, 
+        },
+        "Canterbury" : {
+            "Hurunui" : 58, "Waimakariri" : 59, "Christchurch" : 60, "Banks Peninsula" : 61, "Selwyn" : 62
+        },
+        "Otago" : {
+            "Waitaki" : 68, "Central Otago" : 69, "Queenstown Lakes" : 70, "Dunedin" : 71, "Clutha" : 72, "South Otago" : 79
+        },
+        "Southland" : {
+            "Catlins" : 78, "Gore" : 74, "Invercargill" : 75, "Southland" : 73
+        }
+        
+    };
+    var districtList = [];
     var regionList = [];
     for (key in regions) {
         regionList.push(key);
     }
-    var districtList = [];
-    for (key in districts["Otago"]) {
-        districtList.push(key);
-    }
+    
 
 
     function initialize() {
@@ -89,14 +107,14 @@
         });
         $("#dateLimit").prop("checked", false);
 
-        // Populate the district selector list
-        $('#selectDistrict').empty(); // Clear the list first
-        $.each (districtList, function (index, value) {
-            $('#selectDistrict').append($('<option>', {
-                value: districts[value],
+        // Populate the region selector list
+        $('#selectRegion').empty(); // Clear the list first
+        $.each (regionList, function (index, value) {
+            $('#selectRegion').append($('<option>', {
+                value: regions[value],
                 text: value }));
         });
-        changeDistrict(); // Update the map based on district choice
+        changeRegion();
     }
 
 
@@ -133,7 +151,9 @@
         baseUrl = (landType == "Lifestyle")? 'proxy.php?type=Lifestyle.json' : 'proxy.php?type=Residential.json';
 
         $("#data").html("<b>...populating, please wait...</b>");
-        var thisUrl = baseUrl + '&region=' + region + '&district=' + district;
+        var thisUrl = baseUrl + '&region=' + regions[region] + '&district=' + districts[region][district];
+        window.console.log("district = " + district + ", region = " + region);
+        window.console.log("URL = " + thisUrl);
         if (priceMin > 0) {
             thisUrl += thisUrl += '&price_min=' + priceMin;
         }
@@ -144,7 +164,7 @@
             thisUrl += '&bedrooms_min=' + bedrooms;
         }
         if (bedrooms == -1) {
-            thisUrl += '&property_type=section';
+            thisUrl += (landType == "Lifestyle")? '&property_type=BareLand' : '&property_type=section';
         }
         if ($("#dateLimit").is(":checked")) {
             thisUrl += '&date_from=' + notBefore;
@@ -310,10 +330,26 @@
 
 
     function changeDistrict() {
-        var districtName = $('#selectDistrict').find(":selected").text();
-        window.console.log("Geocoding " + districtName);
-        var results = geocode(districtName + ", New Zealand");
-        district = districts[districtName];
+        district = $('#selectDistrict').find(":selected").text();
+        window.console.log("Geocoding " + district);
+        var results = geocode(district + ", New Zealand");
+    }
+
+
+    function changeRegion() {
+        region = $('#selectRegion').find(":selected").text();
+        // Populate the district selector list
+        $('#selectDistrict').empty(); // Clear the list first
+        districtList = [];
+        for (key in districts[region]) {
+            districtList.push(key);
+        }
+        $.each (districtList, function (index, value) {
+            $('#selectDistrict').append($('<option>', {
+                value: districts[value],
+                text: value }));
+        });
+        changeDistrict(); // Update the map based on district choice
     }
 
 
@@ -380,11 +416,13 @@
         <option value="Residential">Residential</option>
         <option value="Lifestyle">Lifestyle</option>
       </select>
+      <select id="selectRegion" name="selectRegion" onchange="changeRegion()">
+      </select>
       <select id="selectDistrict" name="selectDistrict" onchange="changeDistrict()">
       </select>
       <select id="numRooms" onchange="changeBedrooms()">
-        <option value="-1">Only Sections</option>
-        <option value="0">Include Sections</option>
+        <option value="0">Include Bare Land</option>
+        <option value="-1">Only Bare Land</option>
         <option value="3">3 Bedrooms</option>
         <option value="4">4 Bedrooms</option>
       <select>
