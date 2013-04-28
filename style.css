@@ -1,0 +1,72 @@
+body {
+    background-image: none;
+    background-repeat: no-repeat;
+}
+
+p {
+    font-family: Helvetica, serif;
+    font-size: 11px;
+}
+
+h1 {
+    margin: 0;
+    padding: 5px 0 5px;
+}
+
+#thumb {
+    float: left; 
+    width: 85px; 
+    height: 65px;
+    padding: 5px; 
+    display: inline-block; 
+    z-index: 1000; 
+    border: 1px solid silver; 
+    background-color: #f0f0f0;
+}
+
+#help {
+    background-color: #eee; 
+    padding: 5px; 
+    border-radius: 5px;
+    margin-bottom: 5px;
+}
+
+#details {
+    display: inline-block; 
+    position: relative; 
+    white-space: nowrap; 
+    vertical-align: top; 
+    overflow: hidden; 
+    width: 400px; 
+    height: 65px; 
+    padding: 5px; 
+    border: 1px solid silver; 
+    background-color: #f0f0f0;
+}
+
+#controls {
+    margin-left: 5px; 
+    display: inline-block;
+}
+
+#slider {
+    width: 340px; 
+    margin: 5px 0 5px 10px; 
+    vertical-align: middle; 
+    display: inline-block;
+}
+
+#price_range {
+    width: 200px; 
+    height: auto; 
+    padding: 5px; 
+    display: inline-block;
+}
+
+#map_canvas {
+    height: 750px; 
+    width: 80%; 
+    margin-top: 5px; 
+    border: 1px solid blue; 
+    background-color: silver;
+}

@@ -1,4 +1,4 @@
-propertymap
-===========
+property4sale-map
+=================
 
-A map of real estate for sale in NZ
+Code to map properties that are for sale in New Zealand

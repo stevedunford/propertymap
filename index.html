@@ -1,0 +1,406 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+
+<!-- NZ Property For-Sale Finder
+
+    Copyright 2013 Steve Dunford.  
+    
+    See the end of this document (or the bottom of the page if you are 
+    viewing it in a browser) for licensing details.
+
+    I'd also appreciate it if you would please contact me 
+    (steve@essentialtech.co.nz) to let me know what you are using it for,
+    and where.  
+
+    Finally, this code has an additional beerware licence - if you use
+    it then I'd appreciate it if you somehow bought me a beer : ) 
+-->
+
+<html>
+  <head>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrxdl_paLNP-w55wXbwK11tvJ3UQf2u_E&sensor=false" type="text/javascript"></script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script type="text/javascript" src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+    <script type="text/javascript" language="javascript" src="lytebox.js"></script>
+    <link rel="stylesheet" href="lytebox.css" type="text/css" media="screen" />
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript">
+
+
+    var map;
+    var baseUrl='proxy.php?'
+    var region = 10;
+    var district = 69;
+    var priceMin = 0;
+    var priceMax = 500000;
+    var page = 1;
+    var entryCount = 0;
+    var landType = "Residential";
+    var bedrooms = -1;
+    var error = 0;
+    var ignorePrice = false;
+    var day = 86400000; // 1 day in milliseconds
+    var notBefore = 0;
+    var regions = {"Otago" : 10, "Canterbury" : 3};
+    var districts = {"Otago" : {"Waitaki District" : 68, "Central Otago District" : 69, "Queenstown Lakes District" : 70, "Dunedin City" : 71, "Clutha District" : 72, "South Otago District" : 79}, "Canterbury" : {"Hurunui" : 58, "Waimakariri District" : 59, "Christchurch" : 60, "Banks Peninsula" : 61, "Selwyn District" : 62}};
+    var regionList = [];
+    for (key in regions) {
+        regionList.push(key);
+    }
+    var districtList = [];
+    for (key in districts["Otago"]) {
+        districtList.push(key);
+    }
+
+
+    function initialize() {
+        $('body').css('background-image', ''); // Reset background in case spinner still running
+        geocode("New Zealand"); // Test geocoding of districts
+        var geocoder = new google.maps.Geocoder();
+        var latlng   = new google.maps.LatLng(-45.28, 169.66);
+        page = 1;
+        entryCount = 0;
+        var myOptions = {
+            zoom: 9,
+            center: latlng,
+            mapTypeId: google.maps.MapTypeId.ROADMAP
+        };
+        
+        map = new google.maps.Map(document.getElementById('map_canvas'), myOptions);
+        
+        $("#spinner").spinner({
+            min: 1,
+            max: 14,
+            disabled: true,
+            change: function (event, ui) { setDateLimit($("#dateLimit").val()); }
+        });
+        $("#spinner").spinner("value", 3);
+        $("#spinner").spinner("disable");
+
+        $("#slider").slider({
+            min: 0,
+            max: 1000000,
+            step: 50000,
+            range: true,
+            values: [priceMin, priceMax],
+            create: function (event, ui) { setPrice(); },
+            change: function (event, ui) { setPrice(); },
+            slide: function (event, ui) {  priceMin = ui.values[0]; priceMax = ui.values[1]; setPrice(); }
+        });
+        $("#dateLimit").prop("checked", false);
+
+        // Populate the district selector list
+        $('#selectDistrict').empty(); // Clear the list first
+        $.each (districtList, function (index, value) {
+            $('#selectDistrict').append($('<option>', {
+                value: districts[value],
+                text: value }));
+        });
+        changeDistrict(); // Update the map based on district choice
+    }
+
+
+    /**
+     * Display the price range selected by the slider
+     */ 
+    function setPrice() {
+        var prices = 'Between ';
+        if (priceMin < 1000000) {
+            prices += priceMin / 1000 + "k and ";
+        }
+        else {
+            prices += priceMin / 1000000 + "M and ";
+        }
+        if (priceMax < 1000000) {
+            prices += priceMax / 1000 + "k.";
+        }
+        else {
+            prices += priceMax / 1000000 + "M.";
+        }
+        $("#price_range").html("<span id=\"dollars\">" + prices + "</span>");
+    }
+
+
+    /**
+     * Generate a JSON request URL and submit it.
+     * jsonError() is called if the GET fails
+     * requestComplete() is called on success
+     */
+    function getData() {
+        // First start the spinner to show we're busy
+        $('body').css('background-image', 'url("working.gif")');
+        // Then generate the URL ()
+        baseUrl = (landType == "Lifestyle")? 'proxy.php?type=Lifestyle.json' : 'proxy.php?type=Residential.json';
+
+        $("#data").html("<b>...populating, please wait...</b>");
+        var thisUrl = baseUrl + '&region=' + region + '&district=' + district;
+        if (priceMin > 0) {
+            thisUrl += thisUrl += '&price_min=' + priceMin;
+        }
+        if (priceMax > 0 && !ignorePrice) {
+            thisUrl += '&price_max=' + priceMax;
+        }
+        if (bedrooms > 0) {
+            thisUrl += '&bedrooms_min=' + bedrooms;
+        }
+        if (bedrooms == -1) {
+            thisUrl += '&property_type=section';
+        }
+        if ($("#dateLimit").is(":checked")) {
+            thisUrl += '&date_from=' + notBefore;
+        }
+        thisUrl += '&page=' + page + '&rows=' + 200;
+        jQuery.ajax({
+            url: thisUrl, 
+            dataType: 'json',
+            success: requestComplete,
+            error: jsonError
+        });
+    }
+
+
+    function requestComplete(response) {
+        while (error < 3) { // Retry up to 3 times when null reponses received 
+            if (response == null) { 
+                error++;
+                window.console.log("Received an empty response from TM?! (Retry " + error + ")");
+                getData();
+            }
+            else { // Finally got a proper response
+                break;
+            }
+            // Failed during retries, turn off the spinner and admit defeat
+            $('body').css('background-image', '');
+            $("#data").html("<b>ERROR.  TradeMe returned no result.  Please try again</b>");
+            return;
+        }
+        error = 0;
+        var max = response.TotalCount
+        var len = response.List.length;
+        for (var i = 0; i < len; i++) {
+            // Add some jitter to the location to allow for multiple listings on the same spot
+            var latJitter = (Math.random() - 0.5) / 5000;
+            var lonJitter = (Math.random() - 0.5) / 5000;
+            var location = response.List[i].GeographicLocation;
+            var title = response.List[i].ListingId + '\n' + response.List[i].Title + '\n' + response.List[i].Address + '\n' + response.List[i].PriceDisplay;
+            var price = Math.floor(extractPrice(response.List[i].PriceDisplay) / 100000);
+            var pinColor = generatePinColor(price);
+            var iconChar = (price <= 0)? "X" : price.toString(); // 
+            iconChar = (price > priceMax / 100000 && !ignorePrice)? "$" : iconChar; // Property possibly has a deceptive search price 
+            iconChar = (price == -1)? "A" : iconChar; // Property is up for auction
+            var pinImage = generatePinImage('d_map_pin_letter', iconChar + "|" + pinColor, 21, 34, 10, 34);
+            var pinShadow = generatePinImage('d_map_pin_shadow', '', 40, 37, 12, 35);
+            var options = {
+                position: new google.maps.LatLng(location.Latitude + latJitter, location.Longitude + lonJitter),
+                optimized: true,
+                title: title,
+                icon: pinImage,
+                shadow: pinShadow
+            };
+            var marker = new google.maps.Marker(options);
+            marker.setMap(map);
+            var image = response.List[i].PictureHref; // Preview thumbnail
+            google.maps.event.addListener(marker, 'click', showListing(marker));
+            google.maps.event.addListener(marker, 'mouseover', showThumb(marker, image)); 
+            google.maps.event.addListener(marker, 'mouseout', function() { $("#thumb").html(null); $("#details").html(null); });
+        }
+        entryCount += response.PageSize;
+        if (entryCount < max) { // There is still more data to download
+            page ++;
+            getData();
+        }
+        else {
+            // We've got all the data
+            $('body').css('background-image', '');
+            page = 1;  // reset the page and entry count
+            entryCount = 0;
+            $("#data").html("<b>Finished! Hover over markers for more info, click them for the page.</b>");
+        }
+    }
+
+
+    /**
+     * Pins are light-blue to dark blue for cheap to expensive properties respectively
+     * Red indicates no price provided in listing
+     * Green indicates property is up for auction
+     */
+    function generatePinColor(price) {
+        var pinColor;
+        if (price == 0) {
+            pinColor = "ff0000";
+        }
+        else if (price == -1) {
+            pinColor = "00ff00";
+        }
+        else if (price > priceMax / 100000) {
+            pinColor = "ffffff";
+        }
+        else {
+            var cl = (price > 15)? 0 : 15 - price; 
+            var color = cl.toString(16); // convert to single-digit hex value
+            pinColor = color + color + color + color + "ff";
+        }
+        return pinColor;
+    }
+
+
+    /**
+     * Creat the pin of the required type with required size and offset
+     * using the Google Dynamic Icon library (deprecated but still functioning)
+     * https://developers.google.com/chart/infographics/docs/dynamic_icons#pins
+     */
+    function generatePinImage(chst, chld, s1, s2, p1, p2) {
+        var addr = "http://chart.apis.google.com/chart?chst=" + chst;
+        addr += (chld == '')? '' : ('&chld=' + chld);
+        return new google.maps.MarkerImage(addr,
+            new google.maps.Size(s1, s2),
+            new google.maps.Point(0, 0),
+            new google.maps.Point(p1, p2));
+    }
+
+
+    function jsonError(response) {
+        window.console.log("Data Request Fail (is your internet connected?\n");
+        window.console.log(response);
+    }
+
+
+    function extractPrice(price) {
+        var dollarIndex = price.indexOf('$');
+        if (dollarIndex > 0) {
+            price = price.substr(dollarIndex + 1);
+            while (price.indexOf(',') >= 0) {
+                price = price.replace(",", "");
+            }
+            price = parseInt(price);
+        }
+        else if (price.indexOf("auction") > 0) {
+            price = -1; // property to be auctioned
+        }
+        else {
+            price = 0; // price by f#$%ing negotiation
+        }
+        return price;
+    }
+
+
+    function popitup(url) {
+        newwindow = window.open(url, 'name', 'height = 900, width = 1000');
+        if (window.focus) {
+            newwindow.focus()
+        }
+        return false;
+    }
+
+
+    function geocode(address) {
+        var geo = new google.maps.Geocoder();
+        var retval = geo.geocode({ 'address': address, 'region': 'NZ' }, function(results, status) {
+            if (status == google.maps.GeocoderStatus.OK) {
+                map.fitBounds(results[0].geometry.bounds);
+                window.console.log(results[0]);
+                return results
+            }
+            else {
+                window.console.log(status);
+            }
+        });
+        return retval;
+    }
+
+
+    function changeDistrict() {
+        var districtName = $('#selectDistrict').find(":selected").text();
+        window.console.log("Geocoding " + districtName);
+        var results = geocode(districtName + ", New Zealand");
+        district = districts[districtName];
+    }
+
+
+    function changeBedrooms() {
+        bedrooms = parseInt(numRooms.options[numRooms.selectedIndex].value);
+        window.console.log('Bedrooms set to minimum of ' + bedrooms);
+    }
+
+
+    function changeType() {
+        landType = propertyType.options[propertyType.selectedIndex].value;
+        window.console.log('Land type is ' + landType);
+    }
+
+
+    function showListing(id) {
+        return function() {
+            id.setIcon('http://www.google.com/intl/en_us/mapfiles/ms/micons/blue-dot.png');
+            popitup('http://www.trademe.co.nz/Browse/Listing.aspx?id=' + id.getTitle().split('\n')[0])
+        };
+    }
+
+
+    function showThumb(id, image) {
+        return function() {
+            $("#thumb").html("<img src=" + image + " style=\"width: 85px;\">");
+            var details = id.getTitle().split('\n')
+            $("#details").html("<b>" + details[1] + "</b><br />" + details[2] + "<br />" + details[3]);
+        };
+    }
+
+
+    function changeIgnorePrice(checkbox) {
+        ignorePrice = checkbox.checked;
+        $("#slider").slider({ disabled: ignorePrice });
+        var clr = (ignorePrice)? "silver" : "black";
+        $("#dollars").css({ "color" : clr });
+    }
+
+
+    function setDateLimit(checked) {
+        $("#spinner").spinner("option", "disabled", !checked);
+        var thisDate = (new Date().valueOf()) - (day * ($("#spinner").spinner("value")));
+        var date = new Date(thisDate);
+        notBefore = date.getFullYear() + '-' + (date.getMonth() + 1) + '-' + date.getDate();
+    }
+
+
+    </script>
+  </head>
+  <body onload="initialize()" style="background-repeat: no-repeat;">
+    <div style="width: 100%; overflow: hidden">
+        <div style="float: left"><h1>Otago Property Search</h1></div>
+        <div style="float:right; text-align: right; width: auto"><p style="font-style: italic">I'd appreciate your feedback or comments:<br />email me at <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a> - cheers : )</p></div>
+    </div>
+    <div id="help">
+        <strong>Hover over the marker for details, or click it for a popup window with the listing.  The price search only works if the person who made the listing set a proper search price value - if, like many agents, they listed with a very low search price* then the property will show up almost regardless of the price setting.  I have attempted to indicate this by showing the property with a white marker and a '$'.  The other problem relates to properties which are going to auction, and more commonly properties with 'Price by negotiation'*.  These show up as a green marker with an 'A' and a red marker with an 'X' respectively.</strong>
+        <p style="color: silver"><b>*</b><i> May the fleas of 1000 camels infest these peoples armpits forever.  They are perfectly able to tell you the price if you ask, but for some reason appear unwilling to share it in the place it would be most useful to people looking for a property - the listing itself.  And in the case of the search price being set far too low: they seem to think people on a lower budget would be interested in wading through multi-million-dollar mansions.  Idiots.</i></p>
+    </div>
+    <div id="thumb"></div>
+    <div id="details"></div>
+    <div id="controls">
+      <select id="propertyType" onchange="changeType()">
+        <option value="Residential">Residential</option>
+        <option value="Lifestyle">Lifestyle</option>
+      </select>
+      <select id="selectDistrict" name="selectDistrict" onchange="changeDistrict()">
+      </select>
+      <select id="numRooms" onchange="changeBedrooms()">
+        <option value="-1">Only Sections</option>
+        <option value="0">Include Sections</option>
+        <option value="3">3 Bedrooms</option>
+        <option value="4">4 Bedrooms</option>
+      <select>
+      <div id="pricing" style="vertical-align: middle">
+        <div id="slider" style="width: 340px; margin: 5px 0 5px 10px; vertical-align: middle; display: inline-block"></div>
+        <div id="price_range" style="width: 200px; height: auto; padding: 5px; display: inline-block"></div>
+      </div>
+      <input type="checkbox" name="ignorePrice" onclick="changeIgnorePrice(this)">Ignore the price</input>&nbsp;
+      <input type="checkbox" id="dateLimit" onclick="setDateLimit(this.checked)">Listed in the last <input id="spinner" name="days" style="width: 30px" /> days only</input>&nbsp;
+      <input type="button" onclick="getData()" value="Get Properties!">
+      <input type="button" onclick="initialize()" value="Reset Map">
+    </div> <!-- end controls -->
+    <div id="map_canvas"></div>
+    <div id="data"></div>
+    <br />
+    <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc/3.0/88x31.png" /></a><br /><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">NZ Property For-Sale Finder</span> by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Steve Dunford</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US">Creative Commons Attribution-NonCommercial 3.0 Unported License</a>.
+  </body>
+</html>
+                                                                                                  404,1         Bot
