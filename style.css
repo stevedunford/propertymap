@@ -70,3 +70,12 @@ h1 {
     border: 1px solid blue; 
     background-color: silver;
 }
+
+#search_button {
+    width: 140px;
+    height: 30px;
+    border-radius: 10px;
+    background-color: #aa0000;
+    color: #fff;
+    font-weight: bold
+}

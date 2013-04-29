@@ -29,7 +29,7 @@
 
     var map;
     var baseUrl='proxy.php?'
-    var region, district;
+    var localities, region, district;
     var priceMin = 0;
     var priceMax = 400000;
     var page = 1;
@@ -66,6 +66,14 @@
     var regionList = [];
     for (key in regions) {
         regionList.push(key);
+    }
+
+    // Build region list direct from Trade Me Locality.json file
+    jQuery.get('Localities.json', function(data) {
+        localities = data
+    });
+    for (var i = 0; i < localities.length; i++) { 
+        a[localities[i]["Name"]] = localities[i]["LocalityId"] 
     }
     
 
@@ -426,7 +434,7 @@
       </div>
       <input type="checkbox" name="ignorePrice" onclick="changeIgnorePrice(this)">Ignore the price</input>&nbsp;
       <input type="checkbox" id="dateLimit" onclick="setDateLimit(this.checked)">Listed in the last <input id="spinner" name="days" style="width: 30px" /> days only</input>&nbsp;
-      <input type="button" onclick="getData()" value="Get Properties!">
+      <input type="button" onclick="getData()" id="search_button" value="Search Now!">
       <input type="button" onclick="initialize()" value="Reset Map">
     </div> <!-- end controls -->
     <div id="map_canvas"></div>
