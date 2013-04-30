@@ -28,8 +28,9 @@
 
 
     var map;
-    var baseUrl='proxy.php?'
-    var localities, region, district;
+    var baseUrl='proxy.php?';
+    var localities = {};
+    var region, district;
     var priceMin = 0;
     var priceMax = 400000;
     var page = 1;
@@ -64,21 +65,23 @@
     };
     var districtList = [];
     var regionList = [];
-    for (key in regions) {
-        regionList.push(key);
-    }
-
-    // Build region list direct from Trade Me Locality.json file
-    jQuery.get('Localities.json', function(data) {
-        localities = data
-    });
-    for (var i = 0; i < localities.length; i++) { 
-        a[localities[i]["Name"]] = localities[i]["LocalityId"] 
-    }
-    
 
 
     function initialize() {
+        // Build region list direct from a copy of the Trade Me locality data
+        jQuery.get('localities.json', function(data) {
+            localities = eval(data);
+        });
+
+        for (i in localities) { 
+            window.console.log(i + " = " + localities[i]["Name"]);
+            regions[localities[i]["Name"]] = localities[i]["LocalityId"] 
+        }
+
+        for (key in regions) {
+            regionList.push(key);
+        }
+
         $('body').css('background-image', ''); // Reset background in case spinner still running
         page = 1;
         entryCount = 0;
@@ -201,6 +204,7 @@
         }
         error = 0;
         var max = response.TotalCount
+	window.console.log("Found " + max + " entries");
         var len = response.List.length;
         for (var i = 0; i < len; i++) {
             // Add some jitter to the location to allow for multiple listings on the same spot
