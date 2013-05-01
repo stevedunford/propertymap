@@ -41,41 +41,32 @@
     var ignorePrice = false;
     var day = 86400000; // 1 day in milliseconds
     var notBefore = 0;
-    var regions = {"Canterbury" : 3, "Nelson / Tasman" : 8, "Marlborough" : 7, "West Coast" : 16, "Otago" : 10, "Southland" : 11};
-    var districts = {
-        "Canterbury" : {
-            "Christchurch District" : 60, "Hurunui District" : 58, "Waimakariri District" : 59, "Banks Peninsula District" : 61, "Selwyn District" : 62
-        },
-        "Nelson / Tasman" : {
-            "Nelson District" : 52, "Tasman District" : 51
-        },
-        "Marlborough" : {
-             "Marlborough District" : 53, "Kaikoura District" : 54
-        },
-        "West Coast" : {
-            "Grey District" : 56, "Buller District" : 55, "Westland District" : 57, 
-        },
-        "Otago" : {
-            "Dunedin" : 71, "Waitaki District" : 68, "Central Otago District" : 69, "Queenstown Lakes District" : 70, "Clutha District" : 72, "South Otago" : 79
-        },
-        "Southland" : {
-            "Invercargill" : 75, "Catlins" : 78, "Gore" : 74, "Southland" : 73
-        }
-        
-    };
+    var regions = {}; //{"Canterbury" : 3, "Nelson / Tasman" : 8, "Marlborough" : 7, "West Coast" : 16, "Otago" : 10, "Southland" : 11};
+    var districts = {}; 
     var districtList = [];
     var regionList = [];
-
-
-    function initialize() {
+    var timeoutID;
         // Build region list direct from a copy of the Trade Me locality data
         jQuery.get('localities.json', function(data) {
             localities = eval(data);
         });
 
+    function initialize() {
+        // adding test delay to see if the eval function needs more time
+        // as region list is not populating on first load... so far so bad...
+        timeoutID = window.setTimeout(initialize2, 100); // 100mS
+    }
+
+    function initialize2() {
+        window.clearTimeout(timeoutID);
+
         for (i in localities) { 
-            window.console.log(i + " = " + localities[i]["Name"]);
-            regions[localities[i]["Name"]] = localities[i]["LocalityId"] 
+            regions[localities[i]["Name"]] = localities[i]["LocalityId"];
+            districts[localities[i]["Name"]] = {};
+            window.console.log(regions[localities[i]["Name"]] + " = " + localities[i]["Name"]);
+            for (p in localities[i]["Districts"]) {
+                districts[localities[i]["Name"]][localities[i]["Districts"][p]["Name"]] = localities[i]["Districts"][p]["DistrictId"];
+            }
         }
 
         for (key in regions) {
