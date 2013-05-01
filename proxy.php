@@ -9,6 +9,21 @@
         if (next($_GET)) $baseUrl .= '&'; // Don't add '&' for last item
     }
   }
-  $retval = file_get_contents($baseUrl);
-  return $retval;
+  $url = rtrim($baseUrl, '&');
+
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  $retval = curl_exec($ch);
+  curl_close($ch);
+  error_log("TradeMe URL trying: ".$url, 0);
+  //$retry = 0;
+  //while ($retry < 10) {
+  //  $retry = $retry + 1;
+   // $retval = file_get_contents($url);
+  //  if ($reval != null) {
+  //    return $retval;
+  //  }
+  //}
+  echo $retval;
 ?>

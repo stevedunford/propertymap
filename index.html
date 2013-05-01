@@ -33,6 +33,7 @@
     var region, district;
     var priceMin = 0;
     var priceMax = 400000;
+    var rows = 25;
     var page = 1;
     var entryCount = 0;
     var landType = "Residential";
@@ -41,34 +42,31 @@
     var ignorePrice = false;
     var day = 86400000; // 1 day in milliseconds
     var notBefore = 0;
-    var regions = {}; //{"Canterbury" : 3, "Nelson / Tasman" : 8, "Marlborough" : 7, "West Coast" : 16, "Otago" : 10, "Southland" : 11};
-    var districts = {}; 
+    var regions = { "Auckland": 1, "Bay Of Plenty": 2, "Canterbury": 3, "Gisborne": 4, "Hawkes Bay": 5, "Manawatu / Wanganui": 6, "Marlborough": 7, "Nelson / Tasman": 8, "Northland": 9, "Otago": 10, "Southland": 11, "Taranaki": 12, "Waikato": 14, "Wellington": 15, "West Coast": 16 };
+    
+    var districts = {
+        "Auckland": {"Auckland City": 7, "Franklin": 10, "Hauraki Gulf Islands": 81, "Manukau City": 8, "North Shore City": 5, "Papakura": 9, "Rodney": 4, "Waiheke Island": 77, "Waitakere City": 6}, 
+        "Bay Of Plenty": {"Kawerau": 26, "Opotiki": 27, "Rotorua": 24, "Tauranga": 23, "Western Bay Of Plenty": 22, "Whakatane": 25}, 
+        "Canterbury": {"Ashburton": 63, "Banks Peninsula": 61, "Christchurch City": 60, "Hurunui": 58, "Mackenzie": 65, "Selwyn": 62, "Timaru": 64, "Waimakariri": 59, "Waimate": 66}, 
+        "Gisborne": {"Gisborne": 28}, 
+        "Hawkes Bay": {"Central Hawkes Bay": 32, "Hastings": 30, "Napier": 31, "Wairoa": 29}, 
+        "Manawatu / Wanganui": {"Horowhenua": 42, "Manawatu": 39, "Palmerston North": 40, "Rangitikei": 38, "Ruapehu": 36, "Tararua": 41, "Wanganui": 37}, 
+        "Marlborough": {"Kaikoura": 54, "Marlborough": 53}, 
+        "Nelson / Tasman": {"Nelson": 52, "Tasman": 51}, 
+        "Northland": {"Far North": 1, "Kaipara": 3, "Whangarei": 2}, 
+        "Otago": {"Central Otago": 69, "Clutha": 72, "Dunedin": 71, "Queenstown-Lakes": 70, "South Otago": 79, "Waitaki": 68}, 
+        "Southland": {"Catlins": 78, "Gore": 74, "Invercargill": 75, "Southland": 73}, 
+        "Taranaki": {"New Plymouth": 33, "South Taranaki": 35, "Stratford": 34}, 
+        "Waikato": {"Hamilton": 16, "Hauraki": 12, "Matamata-Piako": 15, "Otorohanga": 18, "South Waikato": 19, "Taupo": 21, "Thames-Coromandel": 11, "Waikato": 13, "Waipa": 17, "Waitomo": 20}, 
+        "Wellington": {"Carterton": 49, "Kapiti Coast": 43, "Lower Hutt": 46, "Masterton": 48, "Porirua": 44, "South Wairarapa": 50, "Upper Hutt": 45, "Wellington": 47}, 
+        "West Coast": {"Buller": 55, "Grey": 56, "Westland": 57 }}; 
     var districtList = [];
     var regionList = [];
     var timeoutID;
-        // Build region list direct from a copy of the Trade Me locality data
-        jQuery.get('localities.json', function(data) {
-            localities = eval(data);
-        });
+    var tmp = {};
+
 
     function initialize() {
-        // adding test delay to see if the eval function needs more time
-        // as region list is not populating on first load... so far so bad...
-        timeoutID = window.setTimeout(initialize2, 100); // 100mS
-    }
-
-    function initialize2() {
-        window.clearTimeout(timeoutID);
-
-        for (i in localities) { 
-            regions[localities[i]["Name"]] = localities[i]["LocalityId"];
-            districts[localities[i]["Name"]] = {};
-            window.console.log(regions[localities[i]["Name"]] + " = " + localities[i]["Name"]);
-            for (p in localities[i]["Districts"]) {
-                districts[localities[i]["Name"]][localities[i]["Districts"][p]["Name"]] = localities[i]["Districts"][p]["DistrictId"];
-            }
-        }
-
         for (key in regions) {
             regionList.push(key);
         }
@@ -153,7 +151,6 @@
         $("#data").html("<b>...populating, please wait...</b>");
         var thisUrl = baseUrl + '&region=' + regions[region] + '&district=' + districts[region][district];
         window.console.log("district = " + district + ", region = " + region);
-        window.console.log("URL = " + thisUrl);
         if (priceMin > 0) {
             thisUrl += thisUrl += '&price_min=' + priceMin;
         }
@@ -170,7 +167,8 @@
         if ($("#dateLimit").is(":checked")) {
             thisUrl += '&date_from=' + notBefore;
         }
-        thisUrl += '&page=' + page + '&rows=' + 200;
+        thisUrl += '&page=' + page + '&rows=' + rows;
+        window.console.log("URL = " + thisUrl);
         jQuery.ajax({
             url: thisUrl, 
             dataType: 'json',
@@ -181,6 +179,8 @@
 
 
     function requestComplete(response) {
+        jQuery.extend(true, tmp, response); // Make tmp copy of the results
+        window.console.log("ERROR:" + response + ":ERROR");
         while (error < 3) { // Retry up to 3 times when null reponses received 
             if (response == null) { 
                 error++;
@@ -197,8 +197,9 @@
         }
         error = 0;
         var max = response.TotalCount
-	window.console.log("Found " + max + " entries");
         var len = response.List.length;
+        var startListing = (response.Page - 1) * rows
+        window.console.log("Returning properties " + startListing + " to " + (startListing + len) + " of " + max);
         for (var i = 0; i < len; i++) {
             // Add some jitter to the location to allow for multiple listings on the same spot
             var latJitter = (Math.random() - 0.5) / 5000;
