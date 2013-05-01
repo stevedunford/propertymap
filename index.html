@@ -62,7 +62,6 @@
         "West Coast": {"Buller": 55, "Grey": 56, "Westland": 57 }}; 
     var districtList = [];
     var regionList = [];
-    var timeoutID;
     var tmp = {};
 
 
@@ -145,14 +144,15 @@
     function getData() {
         // First start the spinner to show we're busy
         $('body').css('background-image', 'url("working.gif")');
+
         // Then generate the URL ()
         baseUrl = (landType == "Lifestyle")? 'proxy.php?type=Lifestyle.json' : 'proxy.php?type=Residential.json';
 
         $("#data").html("<b>...populating, please wait...</b>");
+
         var thisUrl = baseUrl + '&region=' + regions[region] + '&district=' + districts[region][district];
-        window.console.log("district = " + district + ", region = " + region);
         if (priceMin > 0) {
-            thisUrl += thisUrl += '&price_min=' + priceMin;
+            thisUrl += '&price_min=' + priceMin;
         }
         if (priceMax > 0 && !ignorePrice) {
             thisUrl += '&price_max=' + priceMax;
@@ -169,6 +169,7 @@
         }
         thisUrl += '&page=' + page + '&rows=' + rows;
         window.console.log("URL = " + thisUrl);
+
         jQuery.ajax({
             url: thisUrl, 
             dataType: 'json',
@@ -179,8 +180,7 @@
 
 
     function requestComplete(response) {
-        jQuery.extend(true, tmp, response); // Make tmp copy of the results
-        window.console.log("ERROR:" + response + ":ERROR");
+        jQuery.extend(true, tmp, response); // Make tmp copy of the results for testing
         while (error < 3) { // Retry up to 3 times when null reponses received 
             if (response == null) { 
                 error++;
