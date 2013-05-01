@@ -9,5 +9,6 @@
         if (next($_GET)) $baseUrl .= '&'; // Don't add '&' for last item
     }
   }
-  echo file_get_contents($baseUrl);
+  $retval = file_get_contents($baseUrl);
+  return $retval;
 ?>
