@@ -62,6 +62,7 @@
         "West Coast": {"Buller": 55, "Grey": 56, "Westland": 57 }}; 
     var districtList = [];
     var regionList = [];
+    var geo = new google.maps.Geocoder();
     var tmp = {};
 
 
@@ -191,6 +192,9 @@
                 break;
             }
             // Failed during retries, turn off the spinner and admit defeat
+            
+        }
+        if (error >=3) {
             $('body').css('background-image', '');
             $("#data").html("<b>ERROR.  TradeMe returned no result.  Please try again</b>");
             return;
@@ -202,9 +206,28 @@
         window.console.log("Returning properties " + startListing + " to " + (startListing + len) + " of " + max);
         for (var i = 0; i < len; i++) {
             // Add some jitter to the location to allow for multiple listings on the same spot
+            var latitude = null;
+            var longitude = null;
             var latJitter = (Math.random() - 0.5) / 5000;
             var lonJitter = (Math.random() - 0.5) / 5000;
-            var location = response.List[i].GeographicLocation;
+            try {
+                latitude  = response.List[i].GeographicLocation.Latitude;
+                longitude = response.List[i].GeographicLocation.Longitude;
+            }
+            catch(err) {
+                var retval = geo.geocode({ 
+                    'address': response.List[i].Address, 
+                    'region': 'NZ'
+                }, function(results, status) {
+                    if (status == google.maps.GeocoderStatus.OK) {
+                        latitude  = results[0].geometry.location.jb;
+                        longitude = results[0].geometry.location.kb;
+                    }
+                    else {
+                        window.console.log(i + " FAIL");
+                    }
+                });
+            }
             var title = response.List[i].ListingId + '\n' + response.List[i].Title + '\n' + response.List[i].Address + '\n' + response.List[i].PriceDisplay;
             var price = Math.floor(extractPrice(response.List[i].PriceDisplay) / 100000);
             var pinColor = generatePinColor(price);
@@ -214,7 +237,7 @@
             var pinImage = generatePinImage('d_map_pin_letter', iconChar + "|" + pinColor, 21, 34, 10, 34);
             var pinShadow = generatePinImage('d_map_pin_shadow', '', 40, 37, 12, 35);
             var options = {
-                position: new google.maps.LatLng(location.Latitude + latJitter, location.Longitude + lonJitter),
+                position: new google.maps.LatLng(latitude + latJitter, longitude + lonJitter),
                 optimized: true,
                 title: title,
                 icon: pinImage,
@@ -317,7 +340,6 @@
 
 
     function geocode(address) {
-        var geo = new google.maps.Geocoder();
         var retval = geo.geocode({ 
             'address': address, 
             'region': 'NZ'
@@ -398,12 +420,34 @@
     }
 
 
+    function preventUndesirables(checkbox) {
+        if (checkbox.checked) {
+            $('#search_button').css('background-color', 'red');
+            $('#search_button').prop('value', 'Don\'t Press!');
+        }
+        else {
+            $('#search_button').css('background-color', 'green');
+            $('#search_button').prop('value', 'Search Now!');
+        }
+    }
+
+
+    function showHelp() {
+        if ($("#help").is(":hidden")) {
+            $("#help").slideDown("slow");
+        }
+        else {
+            $("#help").slideUp("slow");
+        }
+    }
+
     </script>
   </head>
   <body onload="initialize()" style="background-repeat: no-repeat;">
     <div style="width: 100%; overflow: hidden">
         <div style="float: left"><h1>New Zealand Property Search</h1></div>
-        <div style="float:right; text-align: right; width: auto"><p style="font-style: italic">I'd appreciate your feedback or comments:<br />email me at <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a> - cheers : )</p></div>
+        <div style="float: right; text-align: right; width: auto"><p style="font-style: italic">I'd appreciate your feedback or comments:<br />email me at <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a> - cheers : )</p></div>
+        <input type="button" onclick="showHelp()" id="help_button" value="Show / Hide Help" style="float: right; margin-top: 5px; margin-right: 5px">
     </div>
     <div id="help">
         <strong>Hover over the marker for details, or click it for a popup window with the listing.  The price search only works if the person who made the listing set a proper search price value - if, like many agents, they listed with a very low search price* then the property will show up almost regardless of the price setting.  I have attempted to indicate this by showing the property with a white marker and a '$'.  The other problem relates to properties which are going to auction, and more commonly properties with 'Price by negotiation'*.  These show up as a green marker with an 'A' and a red marker with an 'X' respectively.</strong>
@@ -431,14 +475,15 @@
         <div id="price_range" style="width: 200px; height: auto; padding: 5px; display: inline-block"></div>
       </div>
       <input type="checkbox" name="ignorePrice" onclick="changeIgnorePrice(this)">Ignore the price</input>&nbsp;
+      <input type="checkbox" name="preventUndesirables" onclick="preventUndesirables(this)">Keep undesirables out</input>&nbsp;
       <input type="checkbox" id="dateLimit" onclick="setDateLimit(this.checked)">Listed in the last <input id="spinner" name="days" style="width: 30px" /> days only</input>&nbsp;
       <input type="button" onclick="getData()" id="search_button" value="Search Now!">
       <input type="button" onclick="initialize()" value="Reset Map">
     </div> <!-- end controls -->
     <div id="map_canvas"></div>
     <div id="data"></div>
-    <br />
-    <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc/3.0/88x31.png" /></a><br /><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">NZ Property For-Sale Finder</span> by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Steve Dunford</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US">Creative Commons Attribution-NonCommercial 3.0 Unported License</a>.
+	    <br />
+	    <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc/3.0/88x31.png" /></a> Licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US">Creative Commons Attribution-NonCommercial 3.0 Unported License</a>.
   </body>
 </html>
-                                                                                                  404,1         Bot
+

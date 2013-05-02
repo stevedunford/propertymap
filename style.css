@@ -65,7 +65,7 @@ h1 {
 
 #map_canvas {
     height: 750px; 
-    width: 80%; 
+    width: 100%; 
     margin-top: 5px; 
     border: 1px solid blue; 
     background-color: silver;

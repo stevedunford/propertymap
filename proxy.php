@@ -17,6 +17,7 @@
   $retval = curl_exec($ch);
   curl_close($ch);
   error_log("TradeMe URL trying: ".$url, 0);
+  error_log("Repsonse: $retval");
   //$retry = 0;
   //while ($retry < 10) {
   //  $retry = $retry + 1;
