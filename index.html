@@ -23,6 +23,7 @@
     <script type="text/javascript" language="javascript" src="lytebox.js"></script>
     <link rel="stylesheet" href="lytebox.css" type="text/css" media="screen" />
     <link rel="stylesheet" href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css">
+    <link href='http://fonts.googleapis.com/css?family=Milonga' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" href="style.css">
     <script type="text/javascript">
 
@@ -204,6 +205,8 @@
         var len = response.List.length;
         var startListing = (response.Page - 1) * rows
         window.console.log("Returning properties " + startListing + " to " + (startListing + len) + " of " + max);
+        var progress = Math.floor((startListing + len) / max * 100);
+        $('#progress').css('width', progress.toString());
         for (var i = 0; i < len; i++) {
             // Add some jitter to the location to allow for multiple listings on the same spot
             var latitude = null;
@@ -228,7 +231,14 @@
                     }
                 });
             }
-            var title = response.List[i].ListingId + '\n' + response.List[i].Title + '\n' + response.List[i].Address + '\n' + response.List[i].PriceDisplay;
+            var id = response.List[i].ListingId
+            var tl = response.List[i].Title
+            var ad = response.List[i].Address
+            var pd = response.List[i].PriceDisplay;
+            var title  = (id == null)? "" : id + "\n";
+            title += (tl == null)? "" : tl + "\n";
+            title += (ad == null)? "" : ad + "\n";
+            title += (pd == null)? "" : pd;
             var price = Math.floor(extractPrice(response.List[i].PriceDisplay) / 100000);
             var pinColor = generatePinColor(price);
             var iconChar = (price <= 0)? "X" : price.toString(); // 
@@ -247,7 +257,7 @@
             marker.setMap(map);
             var image = response.List[i].PictureHref; // Preview thumbnail
             google.maps.event.addListener(marker, 'click', showListing(marker));
-            google.maps.event.addListener(marker, 'mouseover', showThumb(marker, image)); 
+            google.maps.event.addListener(marker, 'mouseover', showThumb(title, image)); 
             google.maps.event.addListener(marker, 'mouseout', function() { $("#thumb").html(null); $("#details").html(null); });
         }
         entryCount += response.PageSize;
@@ -395,10 +405,12 @@
     }
 
 
-    function showThumb(id, image) {
+    function showThumb(detail, image) {
         return function() {
             $("#thumb").html("<img src=" + image + " style=\"width: 85px;\">");
-            var details = id.getTitle().split('\n')
+            var details = detail.split('\n'); // var details = id.getTitle().split('\n')
+            details[2] = (details[2] == null)? "" : details[2];
+            details[3] = (details[3] == null)? "" : details[3];
             $("#details").html("<b>" + details[1] + "</b><br />" + details[2] + "<br />" + details[3]);
         };
     }
@@ -420,18 +432,6 @@
     }
 
 
-    function preventUndesirables(checkbox) {
-        if (checkbox.checked) {
-            $('#search_button').css('background-color', 'red');
-            $('#search_button').prop('value', 'Don\'t Press!');
-        }
-        else {
-            $('#search_button').css('background-color', 'green');
-            $('#search_button').prop('value', 'Search Now!');
-        }
-    }
-
-
     function showHelp() {
         if ($("#help").is(":hidden")) {
             $("#help").slideDown("slow");
@@ -444,14 +444,10 @@
     </script>
   </head>
   <body onload="initialize()" style="background-repeat: no-repeat;">
-    <div style="width: 100%; overflow: hidden">
-        <div style="float: left"><h1>New Zealand Property Search</h1></div>
-        <div style="float: right; text-align: right; width: auto"><p style="font-style: italic">I'd appreciate your feedback or comments:<br />email me at <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a> - cheers : )</p></div>
-        <input type="button" onclick="showHelp()" id="help_button" value="Show / Hide Help" style="float: right; margin-top: 5px; margin-right: 5px">
-    </div>
     <div id="help">
         <strong>Hover over the marker for details, or click it for a popup window with the listing.  The price search only works if the person who made the listing set a proper search price value - if, like many agents, they listed with a very low search price* then the property will show up almost regardless of the price setting.  I have attempted to indicate this by showing the property with a white marker and a '$'.  The other problem relates to properties which are going to auction, and more commonly properties with 'Price by negotiation'*.  These show up as a green marker with an 'A' and a red marker with an 'X' respectively.</strong>
         <p style="color: silver"><b>*</b><i> May the fleas of 1000 camels infest these peoples armpits forever.  They are perfectly able to tell you the price if you ask, but for some reason appear unwilling to share it in the place it would be most useful to people looking for a property - the listing itself.  And in the case of the search price being set far too low: they seem to think people on a lower budget would be interested in wading through multi-million-dollar mansions.  Idiots.</i></p>
+        <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc/3.0/88x31.png" /></a> Licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US">Creative Commons Attribution-NonCommercial 3.0 Unported License</a>.
     </div>
     <div id="thumb"></div>
     <div id="details"></div>
@@ -467,23 +463,36 @@
       <select id="numRooms">
         <option value="0">Include Bare Land</option>
         <option value="-1">Only Bare Land</option>
+        <option value="1">1 Bedrooms</option>
+        <option value="2">2 Bedrooms</option>
         <option value="3">3 Bedrooms</option>
         <option value="4">4 Bedrooms</option>
+        <option value="5">5+ Bedrooms</option>
       <select>
       <div id="pricing" style="vertical-align: middle">
         <div id="slider" style="width: 340px; margin: 5px 0 5px 10px; vertical-align: middle; display: inline-block"></div>
         <div id="price_range" style="width: 200px; height: auto; padding: 5px; display: inline-block"></div>
       </div>
       <input type="checkbox" name="ignorePrice" onclick="changeIgnorePrice(this)">Ignore the price</input>&nbsp;
-      <input type="checkbox" name="preventUndesirables" onclick="preventUndesirables(this)">Keep undesirables out</input>&nbsp;
       <input type="checkbox" id="dateLimit" onclick="setDateLimit(this.checked)">Listed in the last <input id="spinner" name="days" style="width: 30px" /> days only</input>&nbsp;
       <input type="button" onclick="getData()" id="search_button" value="Search Now!">
       <input type="button" onclick="initialize()" value="Reset Map">
     </div> <!-- end controls -->
-    <div id="map_canvas"></div>
-    <div id="data"></div>
-	    <br />
-	    <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc/3.0/88x31.png" /></a> Licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US">Creative Commons Attribution-NonCommercial 3.0 Unported License</a>.
-  </body>
+    <div id="map_wrapper">
+        <h1 class="transparent" unselectable="on">New Zealand Property Search</h1>
+        <div id="map_canvas"></div>
+    </div>
+    <div style="width: 100%; overflow: hidden">
+        <div style="float: left; border: 1px solid black; width: 100px; height: 14px; margin-right: 5px;">
+            <div style="float: left; width: 0px; height: 14px; background-color: black" id="progress"></div>
+        </div>
+        <div style="float: left" id="data"></div>
+        <div style="float: right; text-align: right; width: auto">Feedback or comments to <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a></div>
+        <input type="button" onclick="showHelp()" id="help_button" value="Show / Hide Help" style="float: right; margin-top: -1px; margin-right: 30px">
+    </div>
+    <div ></div>
+    <br />
+    
+</body>
 </html>
 
