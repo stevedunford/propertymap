@@ -209,7 +209,7 @@
         $('#progress').css('width', progress.toString());
         for (var i = 0; i < len; i++) {
             // Add some jitter to the location to allow for multiple listings on the same spot
-            var latitude = null;
+            var latitude  = null;
             var longitude = null;
             var latJitter = (Math.random() - 0.5) / 5000;
             var lonJitter = (Math.random() - 0.5) / 5000;
@@ -316,11 +316,17 @@
 
 
     function jsonError(response) {
-        window.console.log("Data Request Fail (is your internet connected?\n");
+        window.console.log("Data Request Fail (is your internet connected?)\n");
         window.console.log(response);
     }
 
 
+    /**
+     * Takes the price field from the auction data and 
+     * returns the int price value, -1 if the property
+     * is up for auction or 0 for no price given (or
+     * unable to determine)
+     */
     function extractPrice(price) {
         var dollarIndex = price.indexOf('$');
         if (dollarIndex > 0) {
@@ -328,7 +334,12 @@
             while (price.indexOf(',') >= 0) {
                 price = price.replace(",", "");
             }
-            price = parseInt(price);
+            try {
+                price = parseInt(price);
+            } catch (err) { // This shouldn't happen, but just in case...
+                window.console.log("Price could not be determined");
+                price = 0;
+            }
         }
         else if (price.indexOf("auction") > 0) {
             price = -1; // property to be auctioned
@@ -339,9 +350,12 @@
         return price;
     }
 
-
+ 
+    /**
+     * Pops up a window with the property details 
+     */
     function popitup(url) {
-        newwindow = window.open(url, 'name', 'height = 900, width = 1000');
+        newwindow = window.open(url, 'Property', 'height=900, width=1000, scrollbars=1, location=1, status=1, resizable=1');
         if (window.focus) {
             newwindow.focus()
         }
@@ -349,6 +363,12 @@
     }
 
 
+    /**
+     * Uses the Google Geocode API to look up the area
+     * selected by the region/district dropdowns
+     * return values are non-functional hence the map
+     * manipulation internally
+     */
     function geocode(address) {
         var retval = geo.geocode({ 
             'address': address, 
@@ -483,8 +503,8 @@
         <div id="map_canvas"></div>
     </div>
     <div style="width: 100%; overflow: hidden">
-        <div style="float: left; border: 1px solid black; width: 100px; height: 14px; margin-right: 5px;">
-            <div style="float: left; width: 0px; height: 14px; background-color: black" id="progress"></div>
+        <div style="float: left; border: 1px solid black; width: 102px; height: 10px; margin: 4px 5px 0 0;">
+            <div style="float: left; width: 0px; height: 8px; background-color: #333; margin: 1px 0 0 1px;" id="progress"></div>
         </div>
         <div style="float: left" id="data"></div>
         <div style="float: right; text-align: right; width: auto">Feedback or comments to <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a></div>
