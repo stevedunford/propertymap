@@ -217,7 +217,7 @@
                 latitude  = response.List[i].GeographicLocation.Latitude;
                 longitude = response.List[i].GeographicLocation.Longitude;
             }
-            catch(err) {
+            catch(err) { // The property listing has no lat or lng provided
                 var retval = geo.geocode({ 
                     'address': response.List[i].Address, 
                     'region': 'NZ'
@@ -226,10 +226,13 @@
                         latitude  = results[0].geometry.location.jb;
                         longitude = results[0].geometry.location.kb;
                     }
-                    else {
-                        window.console.log(i + " FAIL");
+                    else { // No lat or lng could be deduced, log error and continue
+                        window.console.log("Failed to geocode an address");
                     }
                 });
+            }
+            if (latitude == null || longitude == null) {
+                continue; // Deal with no lat or lng provided and a failed geocode
             }
             var id = response.List[i].ListingId
             var tl = response.List[i].Title
