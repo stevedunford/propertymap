@@ -15,6 +15,27 @@
     it then I'd appreciate it if you somehow bought me a beer : ) 
 -->
 
+
+<!-- ?php
+  // OAuth code by James Sleeman, Gogo Internet Services Limited
+  // https://github.com/sleemanj/gogoTradeMe
+  ini_set('display_errors', 'On');
+
+  require_once('include/init.php');   
+
+  if(!isset($_REQUEST['Reauthorise']))
+  {        
+    $RequestToken = trademe()->get_request_token();
+    store_token($RequestToken);
+    $RedirectURL = trademe()->get_authorize_url();
+    header('location: '.$RedirectURL );
+    exit;
+  }
+  else {
+    $_REQUEST['Authorise'] = 1;
+  }
+? -->
+
 <html>
   <head>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrxdl_paLNP-w55wXbwK11tvJ3UQf2u_E&sensor=false" type="text/javascript"></script>
@@ -31,7 +52,7 @@
     var map;
     var baseUrl='proxy.php?';
     var localities = {};
-    var region, district;
+    var region, district, suburb;
     var priceMin = 0;
     var priceMax = 400000;
     var rows = 25;
@@ -43,35 +64,63 @@
     var ignorePrice = false;
     var day = 86400000; // 1 day in milliseconds
     var notBefore = 0;
-    var regions = { "Auckland": 1, "Bay Of Plenty": 2, "Canterbury": 3, "Gisborne": 4, "Hawkes Bay": 5, "Manawatu / Wanganui": 6, "Marlborough": 7, "Nelson / Tasman": 8, "Northland": 9, "Otago": 10, "Southland": 11, "Taranaki": 12, "Waikato": 14, "Wellington": 15, "West Coast": 16 };
+    var localities_received_flag = false;
+    var regions = {}; // { "Auckland": 1, "Bay Of Plenty": 2, "Canterbury": 3, "Gisborne": 4, "Hawkes Bay": 5, "Manawatu / Wanganui": 6, "Marlborough": 7, "Nelson / Tasman": 8, "Northland": 9, "Otago": 10, "Southland": 11, "Taranaki": 12, "Waikato": 14, "Wellington": 15, "West Coast": 16 };
     
-    var districts = {
-        "Auckland": {"Auckland City": 7, "Franklin": 10, "Hauraki Gulf Islands": 81, "Manukau City": 8, "North Shore City": 5, "Papakura": 9, "Rodney": 4, "Waiheke Island": 77, "Waitakere City": 6}, 
-        "Bay Of Plenty": {"Kawerau": 26, "Opotiki": 27, "Rotorua": 24, "Tauranga": 23, "Western Bay Of Plenty": 22, "Whakatane": 25}, 
-        "Canterbury": {"Ashburton": 63, "Banks Peninsula": 61, "Christchurch City": 60, "Hurunui": 58, "Mackenzie": 65, "Selwyn": 62, "Timaru": 64, "Waimakariri": 59, "Waimate": 66}, 
-        "Gisborne": {"Gisborne": 28}, 
-        "Hawkes Bay": {"Central Hawkes Bay": 32, "Hastings": 30, "Napier": 31, "Wairoa": 29}, 
-        "Manawatu / Wanganui": {"Horowhenua": 42, "Manawatu": 39, "Palmerston North": 40, "Rangitikei": 38, "Ruapehu": 36, "Tararua": 41, "Wanganui": 37}, 
-        "Marlborough": {"Kaikoura": 54, "Marlborough": 53}, 
-        "Nelson / Tasman": {"Nelson": 52, "Tasman": 51}, 
-        "Northland": {"Far North": 1, "Kaipara": 3, "Whangarei": 2}, 
-        "Otago": {"Central Otago": 69, "Clutha": 72, "Dunedin": 71, "Queenstown-Lakes": 70, "South Otago": 79, "Waitaki": 68}, 
-        "Southland": {"Catlins": 78, "Gore": 74, "Invercargill": 75, "Southland": 73}, 
-        "Taranaki": {"New Plymouth": 33, "South Taranaki": 35, "Stratford": 34}, 
-        "Waikato": {"Hamilton": 16, "Hauraki": 12, "Matamata-Piako": 15, "Otorohanga": 18, "South Waikato": 19, "Taupo": 21, "Thames-Coromandel": 11, "Waikato": 13, "Waipa": 17, "Waitomo": 20}, 
-        "Wellington": {"Carterton": 49, "Kapiti Coast": 43, "Lower Hutt": 46, "Masterton": 48, "Porirua": 44, "South Wairarapa": 50, "Upper Hutt": 45, "Wellington": 47}, 
-        "West Coast": {"Buller": 55, "Grey": 56, "Westland": 57 }}; 
+    var districtId, suburbId;
+    var suburbs = {};
     var districtList = [];
     var regionList = [];
     var geo = new google.maps.Geocoder();
     var tmp = {};
 
 
+    $(window).resize(function() {
+        resize();
+    });
+
+    function resize() {
+        var height = $(window).height();
+        $('#map_canvas').css('height', height - 20);
+        $('#footer').css('margin-top', height - 18);
+    }
+    
+    $('#message').html('<b>Loading location data from Trade Me<br />Please Wait</b>');
+
+    jQuery.ajax({
+        url: 'http://api.trademe.co.nz/v1/Localities.json', 
+        dataType: 'json',
+        async: false,
+        success: function(data) {
+            localities_received_flag = true;
+            localities = eval(data);
+            for (i in localities) {
+                var region = localities[i];
+                if (region['Name'] != 'All') {
+                    regions[region['Name']] = region;
+                }
+            }
+            window.console.log(regions);
+        },
+        error: function(data) {
+            window.console.log("Failed to get localities from TM, can go no further...");
+            window.console.log(data);
+        }
+    });
+
+    $('#message').css('visibility', 'hidden');
+
     function initialize() {
+        resize();
+
+        $('#message').css('visibility', '');
         for (key in regions) {
             regionList.push(key);
         }
 
+        $('#help_button').click(function() {
+            showHelp();
+        });
         $('body').css('background-image', ''); // Reset background in case spinner still running
         page = 1;
         entryCount = 0;
@@ -152,7 +201,13 @@
 
         $("#data").html("<b>...populating, please wait...</b>");
 
-        var thisUrl = baseUrl + '&region=' + regions[region] + '&district=' + districts[region][district];
+        var thisUrl = baseUrl + '&region=' + regions[region]['LocalityId']
+        if (districtId >= 0) {
+            thisUrl += '&district=' + districtId;
+        }
+        if (suburbId.length > 0) {
+            thisUrl += '&suburb=' + suburbId;
+        }
         if (priceMin > 0) {
             thisUrl += '&price_min=' + priceMin;
         }
@@ -390,25 +445,64 @@
     }
 
 
+    function changeSuburb() {
+        suburb = $('#selectSuburb').find(":selected").text();
+        suburbs = $('#selectSuburb').val(); // Get selected suburb(s)
+        suburbId = "";
+        if (suburbs.length > 0) {
+            $.each(suburbs, function(index, value) {
+                suburbId += value + ","; // Add each, comma separated for TM query
+            });
+            suburbId = suburbId.slice(0, -1); // Remove last comma
+        }
+        window.console.log("Suburb ID(s) = " + suburbId);
+        
+    }
+
+
     function changeDistrict() {
-        district = $('#selectDistrict').find(":selected").text();
+        district = $('#selectDistrict option:selected').text();
+        districtId = $('#selectDistrict option:selected').val();
+        window.console.log("District ID = " + districtId);
         window.console.log("Geocoding " + district);
-        var results = geocode(district + " District, New Zealand");
+        var results = geocode((district == "All")? region : district + " District, New Zealand");
+        // Ugly step through to find right district
+        $('#selectSuburb').empty(); // Clear the list first
+        $('#selectSuburb').append($('<option>', {
+                        value: -1,
+                        text: 'All Suburbs' }));
+        if (districtId == -1) {
+            $('#selectSuburb').prop('disabled', true); //css('visibility', 'hidden');
+            return;
+        }
+        $('#selectSuburb').prop('disabled', false); //css('visibility', 'visible');
+        
+        for (index in regions[region]['Districts']) {
+            if (regions[region]['Districts'][index]['Name'] == district) {
+                $.each(regions[region]['Districts'][index]['Suburbs'], function (index, value) {
+                    $('#selectSuburb').append($('<option>', {
+                        value: value['SuburbId'],
+                        text: value['Name'] }));
+                });
+            }
+        }
+        
+        changeSuburb()
     }
 
 
     function changeRegion() {
         region = $('#selectRegion').find(":selected").text();
-        // Populate the district selector list
         $('#selectDistrict').empty(); // Clear the list first
-        districtList = [];
-        for (key in districts[region]) {
-            districtList.push(key);
-        }
-        $.each (districtList, function (index, value) {
+        $('#selectDistrict').append($('<option>', {
+                        value: -1,
+                        text: 'All' }));
+        $.each (regions[region]['Districts'], function (index, value) {
+            window.console.log("Adding " + value['Name'] + " as value " + value['DistrictId']);
             $('#selectDistrict').append($('<option>', {
-                value: districts[value],
-                text: value }));
+                value: value['DistrictId'],
+                text: value['Name'] 
+            }));
         });
         changeDistrict(); // Update the map based on district choice
     }
@@ -468,52 +562,64 @@
   </head>
   <body onload="initialize()" style="background-repeat: no-repeat;">
     <div id="help">
-        <strong>Hover over the marker for details, or click it for a popup window with the listing.  The price search only works if the person who made the listing set a proper search price value - if, like many agents, they listed with a very low search price* then the property will show up almost regardless of the price setting.  I have attempted to indicate this by showing the property with a white marker and a '$'.  The other problem relates to properties which are going to auction, and more commonly properties with 'Price by negotiation'*.  These show up as a green marker with an 'A' and a red marker with an 'X' respectively.</strong>
-        <p style="color: silver"><b>*</b><i> May the fleas of 1000 camels infest these peoples armpits forever.  They are perfectly able to tell you the price if you ask, but for some reason appear unwilling to share it in the place it would be most useful to people looking for a property - the listing itself.  And in the case of the search price being set far too low: they seem to think people on a lower budget would be interested in wading through multi-million-dollar mansions.  Idiots.</i></p>
+        <div style="float: right"><input type="button" onclick="showHelp()" id="help_hide_button" value="Hide Help"></div><div><p class="heading">NZ Property Search Help</p></div>
+        <strong>Residential / Lifestyle:</strong> Select property in town, or in the country<br />
+        <strong>Sections / Bedrooms:</strong> Select sections or the minimum number of bedrooms you are looking for<br />
+        <strong>Area to search:</strong> Select the region, district (optional - select 'All' to show the whole region), and suburb (again, optional)<br />
+        <strong>Price:</strong> Select the price range with the two sliders ($0 - $1 million), or tick 'Any' to search any price.<br />
+        <strong>Date:</strong> Choose only properties that were listed in the last 'x' days by ticking the box and choosing the appropriate number of days<br />
+        <br />Hover over the marker for details, or click it for a popup window with the listing.  The price search only works if the person who made the listing set a proper search price value - if, like many agents, they listed with a very low search price* then the property will show up almost regardless of the price setting.  I have attempted to indicate this by showing the property with a white marker and a '$'.  The other problem relates to properties which are going to auction, and more commonly properties with 'Price by negotiation'*.  These show up as a green marker with an 'A' and a red marker with an 'X' respectively.</strong>
+        <p><b>*</b><i> May the fleas of 1000 camels infest these peoples armpits forever.  They are perfectly able to tell you the price if you ask, but for some reason appear unwilling to share it in the place it would be most useful to people looking for a property - the listing itself.  And in the case of the search price being set far too low: they seem to think people on a lower budget would be interested in wading through multi-million-dollar mansions.  Idiots.</i></p>
         <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc/3.0/88x31.png" /></a> Licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/3.0/deed.en_US">Creative Commons Attribution-NonCommercial 3.0 Unported License</a>.
     </div>
+    <div id="help_button"<strong>Property Search Help</strong></div>
+    <h1 class="transparent30" unselectable="on">New Zealand Property Search</h1>
     <div id="thumb"></div>
     <div id="details"></div>
-    <div id="controls">
-      <select id="propertyType" onchange="changeType()">
-        <option value="Residential">Residential</option>
-        <option value="Lifestyle">Lifestyle</option>
-      </select>
-      <select id="selectRegion" name="selectRegion" onchange="changeRegion()">
-      </select>
-      <select id="selectDistrict" name="selectDistrict" onchange="changeDistrict()">
-      </select>
-      <select id="numRooms">
-        <option value="0">Include Bare Land</option>
-        <option value="-1">Only Bare Land</option>
-        <option value="1">1 Bedrooms</option>
-        <option value="2">2 Bedrooms</option>
-        <option value="3">3 Bedrooms</option>
-        <option value="4">4 Bedrooms</option>
-        <option value="5">5+ Bedrooms</option>
-      <select>
-      <div id="pricing" style="vertical-align: middle">
-        <div id="slider" style="width: 340px; margin: 5px 0 5px 10px; vertical-align: middle; display: inline-block"></div>
-        <div id="price_range" style="width: 200px; height: auto; padding: 5px; display: inline-block"></div>
-      </div>
-      <input type="checkbox" name="ignorePrice" onclick="changeIgnorePrice(this)">Ignore the price</input>&nbsp;
-      <input type="checkbox" id="dateLimit" onclick="setDateLimit(this.checked)">Listed in the last <input id="spinner" name="days" style="width: 30px" /> days only</input>&nbsp;
-      <input type="button" onclick="getData()" id="search_button" value="Search Now!">
-      <input type="button" onclick="initialize()" value="Reset Map">
-    </div> <!-- end controls -->
-    <div id="map_wrapper">
-        <h1 class="transparent" unselectable="on">New Zealand Property Search</h1>
-        <div id="map_canvas"></div>
-    </div>
-    <div style="width: 100%; overflow: hidden">
+    <div id="footer">
         <div style="float: left; border: 1px solid black; width: 102px; height: 10px; margin: 4px 5px 0 0;">
             <div style="float: left; width: 0px; height: 8px; background-color: #333; margin: 1px 0 0 1px;" id="progress"></div>
         </div>
         <div style="float: left" id="data"></div>
-        <div style="float: right; text-align: right; width: auto">Feedback or comments to <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a></div>
-        <input type="button" onclick="showHelp()" id="help_button" value="Show / Hide Help" style="float: right; margin-top: -1px; margin-right: 30px">
+        <div id="feedback" style="float: right; text-align: right;">Feedback or comments to <a href="mailto:propertysearch@essentialtech.co.nz">propertysearch@essentialtech.co.nz</a></div>
+        </div>
+    <div id="map_wrapper">
+      <div id="controls" class="transparent90">
+          <select id="propertyType" onchange="changeType()">
+            <option value="Residential">Residential</option>
+            <option value="Lifestyle">Lifestyle</option>
+          </select>
+          <select id="numRooms">
+            <option value="0">Include Sections</option>
+            <option value="-1">Only Sections</option>
+            <option value="1">1 Bedrooms</option>
+            <option value="2">2 Bedrooms</option>
+            <option value="3">3 Bedrooms</option>
+            <option value="4">4 Bedrooms</option>
+            <option value="5">5+ Bedrooms</option>
+          </select>
+          <hr>
+          <select id="selectRegion" name="selectRegion" onchange="changeRegion()">
+          </select>
+          <select id="selectDistrict" name="selectDistrict" onchange="changeDistrict()">
+          </select>
+          <select multiple id="selectSuburb" name="selectSuburb" onchange="changeSuburb()">
+          </select>
+          <hr>
+          <div id="pricing" style="vertical-align: middle">
+            Price: (<input type="checkbox" name="ignorePrice" onclick="changeIgnorePrice(this)">Any)</input>
+            <div id="slider"></div>
+            <div id="price_range" style="width: 200px; height: auto; padding: 5px; display: inline-block"></div>
+            
+          </div>
+          <hr>
+          <input type="checkbox" id="dateLimit" onclick="setDateLimit(this.checked)">Listed in the last <input id="spinner" name="days" style="width: 30px" /> days</input>
+          <input type="button" onclick="getData()" id="search_button" value="Search Now!">&nbsp;&nbsp;
+          <input type="button" onclick="initialize()" value="Reset Map">
+      </div> <!-- end controls -->
+    
+        <div id="map_canvas"></div>
     </div>
-    <div ></div>
     <br />
     
 </body>

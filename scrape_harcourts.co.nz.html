@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+
+<html>
+  <head>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script src='https://raw.github.com/padolsey/jQuery-Plugins/master/cross-domain-ajax/jquery.xdomainajax.js'></script>
+    <script type="text/javascript">
+
+function init() {
+
+    baseUrl = "http://www.harcourts.co.nz/Property/Residential?pageid=-1&search=&formsearch=true&location=22016&view=list";
+    $.ajax({
+        url: baseUrl,
+        type: "get",
+        dataType: "",
+        success: function(data) {
+
+            // load the response into jquery element
+            // form tags are needed to get the entire html,head and body
+            $foop = $('<form>' + data.responseText + '</form>');
+            //console.log(data.responseText);
+            
+            /*// find meta tags
+            $.each($foop.find("meta[content]"), function(idx, item) {
+                lnk = $(item).attr("content");
+                $('<option>' + lnk + '</option>').appendTo($('#meta'));
+            });
+*/
+            // find links
+            var lnk
+            var str;
+            $.each($foop.find('a[href]'), function(idx, item) {
+                var lnk = $(item).attr("href").toString();
+                str = lnk.split("/")
+                window.console.log("--" + lnk + "-- : " + str);
+                if (str[0] == "Property") {
+                    try {
+                        int(str[1]);
+                        $('<option>' + lnk + '</option>').appendTo($('#links'));
+                    }
+                    catch(err) {
+                        window.console.log(str[1]);
+                    }
+                }
+            });
+
+            /*// find images bigger than 250x250
+            $.each($foop.find('img[src]'), function(idx, item) {
+                src = $(item).attr("src");
+                if (src.indexOf('http://') == -1) {
+                    src = baseUrl + src;
+                }
+
+                var img = new Image();
+                img.src = src;
+                img.onload = function() {
+                    //alert(this.width + 'x' + this.height);
+                    if (this.width > 250 && this.height > 250) {
+                        $(this).appendTo($('#images'));
+                    }
+                }
+
+            });*/
+                
+            /*// find contents of divs
+            $.each($foop.find('div'), function(idx, item) {
+                mytext = $(item).children().remove().text();
+                //$('<div>'+mytext+'</div>').appendTo($('#divs'));
+            });*/
+
+        },
+        error: function(status) {
+            //console.log("request error:"+url);
+        }
+    });
+}
+</script>
+</head>
+<body onload="init()">
+<select id="meta"></select>
+<select id="links"></select>
+<div id="images"></div>
+<div id="divs"></div>
+<br/><br/>
+<a href="//www.in1.com"><b>in1</b></a>
+</body>
+</html>
