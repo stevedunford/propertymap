@@ -64,7 +64,7 @@ h1 {
 .transparent90 { 
     opacity:.90;
     -moz-opacity:.90; 
-    filter:alpha(opacity=90); 
+    filter:alpha(opacity=70); 
 }
 
 select {
@@ -85,6 +85,7 @@ select {
     border-top-left-radius: 5px;
     border-bottom-left-radius: 5px;
     background-color: #f0f0f0;
+    background-image: url('nz.png');
     opacity:.90;
     -moz-opacity:.90; 
     filter:alpha(opacity=90); 

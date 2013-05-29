@@ -74,19 +74,11 @@
     var geo = new google.maps.Geocoder();
     var tmp = {};
 
-
-    $(window).resize(function() {
-        resize();
-    });
-
-    function resize() {
-        var height = $(window).height();
-        $('#map_canvas').css('height', height - 20);
-        $('#footer').css('margin-top', height - 18);
-    }
-    
-    $('#message').html('<b>Loading location data from Trade Me<br />Please Wait</b>');
-
+    /**
+     * Download the localities info from Trade Me
+     * Async: false to stop the code until its complete
+     * otherwise the drop-down boxes don't fill
+     */
     jQuery.ajax({
         url: 'http://api.trademe.co.nz/v1/Localities.json', 
         dataType: 'json',
@@ -108,26 +100,49 @@
         }
     });
 
-    $('#message').css('visibility', 'hidden');
 
+    /**
+     * Resize the map to full-screen whenever the window size is adjusted
+     */
+    $(window).resize(function() {
+        resize();
+    });
+
+
+    /**
+     * Resize function - split out from window.resize so it can be called during init
+     */
+    function resize() {
+        var height = $(window).height();
+        $('#map_canvas').css('height', height - 20);
+        $('#footer').css('margin-top', height - 18);
+    }
+    
+    /**
+     * Initialise - set up the display
+     */
     function initialize() {
         resize();
 
-        $('#message').css('visibility', '');
+        // Set up region dropdown, and cascade that to district and suburb
         for (key in regions) {
-            regionList.push(key);
+            $('#selectRegion').append($('<option>', {
+                value: regions[key]['LocalityId'],
+                text: key 
+            }));
         }
+        changeRegion();
 
         $('#help_button').click(function() {
             showHelp();
         });
-        $('body').css('background-image', ''); // Reset background in case spinner still running
+
         page = 1;
         entryCount = 0;
+
         var myOptions = {
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
-        
         map = new google.maps.Map(document.getElementById('map_canvas'), myOptions);
         
         $("#spinner").spinner({
@@ -150,19 +165,6 @@
             slide: function (event, ui) {  priceMin = ui.values[0]; priceMax = ui.values[1]; setPrice(); }
         });
         $("#dateLimit").prop("checked", false);
-
-        // Populate the region selector list if its not already
-        if ($('#selectRegion')[0].options.length == 0) {
-            $.each (regionList, function (index, value) {
-                $('#selectRegion').append($('<option>', {
-                    value: regions[value],
-                    text: value }));
-            });
-            changeRegion();
-        }
-        else {
-            changeDistrict();
-        }
     }
 
 
@@ -207,6 +209,9 @@
         }
         if (suburbId.length > 0) {
             thisUrl += '&suburb=' + suburbId;
+        }
+        if ($('#adjacentSuburbs').is(':checked')) {
+            thisUrl += '&adjacent_suburbs=true'
         }
         if (priceMin > 0) {
             thisUrl += '&price_min=' + priceMin;
@@ -297,12 +302,15 @@
             title += (tl == null)? "" : tl + "\n";
             title += (ad == null)? "" : ad + "\n";
             title += (pd == null)? "" : pd;
-            var price = Math.floor(extractPrice(response.List[i].PriceDisplay) / 100000);
+            var price = Math.floor(extractPrice(response.List[i].PriceDisplay) / 1000);
+            window.console.log("Price $" + price)
             var pinColor = generatePinColor(price);
+            var charColour = (pinColor == 'ffffff')? '000000' : 'ffffff';
             var iconChar = (price <= 0)? "X" : price.toString(); // 
-            iconChar = (price > priceMax / 100000 && !ignorePrice)? "$" : iconChar; // Property possibly has a deceptive search price 
+            iconChar = (price > (priceMax / 1000 + 500)  && !ignorePrice)? "$" : iconChar; // Property possibly has a deceptive search price 
             iconChar = (price == -1)? "A" : iconChar; // Property is up for auction
-            var pinImage = generatePinImage('d_map_pin_letter', iconChar + "|" + pinColor, 21, 34, 10, 34);
+            //var pinImage = generatePinImage('d_map_pin_letter', iconChar + "|" + pinColor, 21, 34, 10, 34);
+            var pinImage = generatePinImage('d_map_spin',  "0.6|1|" + pinColor + "|10|_|" + iconChar, 21, 34, 10, 34);
             var pinShadow = generatePinImage('d_map_pin_shadow', '', 40, 37, 12, 35);
             var options = {
                 position: new google.maps.LatLng(latitude + latJitter, longitude + lonJitter),
@@ -346,10 +354,11 @@
         else if (price == -1) {
             pinColor = "00ff00";
         }
-        else if (price > priceMax / 100000) {
+        else if (price > priceMax / 1000 + 500) {
             pinColor = "ffffff";
         }
         else {
+            price = Math.floor(price / 100);
             var cl = (price > 15)? 0 : 15 - price; 
             var color = cl.toString(16); // convert to single-digit hex value
             pinColor = color + color + color + color + "ff";
@@ -472,10 +481,14 @@
                         value: -1,
                         text: 'All Suburbs' }));
         if (districtId == -1) {
-            $('#selectSuburb').prop('disabled', true); //css('visibility', 'hidden');
+            $('#selectSuburb').prop('disabled', true);
+            $('#adjacentSuburbs').prop('checked', false);
+            $('#adjacentSuburbs').attr("disabled", true);
             return;
         }
-        $('#selectSuburb').prop('disabled', false); //css('visibility', 'visible');
+        $('#selectSuburb')[0].selectedIndex = 0;
+        $('#selectSuburb').prop('disabled', false);
+        $('#adjacentSuburbs').removeAttr('disabled');
         
         for (index in regions[region]['Districts']) {
             if (regions[region]['Districts'][index]['Name'] == district) {
@@ -550,13 +563,9 @@
 
 
     function showHelp() {
-        if ($("#help").is(":hidden")) {
-            $("#help").slideDown("slow");
-        }
-        else {
-            $("#help").slideUp("slow");
-        }
+        $("#help").animate({height: 'toggle', opacity:'toggle'}, 'slow');//slideDown("slow");
     }
+
 
     </script>
   </head>
@@ -605,6 +614,7 @@
           </select>
           <select multiple id="selectSuburb" name="selectSuburb" onchange="changeSuburb()">
           </select>
+          <input type="checkbox" id="adjacentSuburbs"> Also search surrounding suburbs</input>
           <hr>
           <div id="pricing" style="vertical-align: middle">
             Price: (<input type="checkbox" name="ignorePrice" onclick="changeIgnorePrice(this)">Any)</input>
