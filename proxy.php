@@ -1,4 +1,5 @@
-// This is the proxy file to get data from trademe and pass it to the Javascript
+/** This is the proxy file to get data from trademe and pass it to the Javascript to get
+    around Javascript security rules where a domain can only get from its own domain **/
 <?php
   $baseUrl = 'https://api.trademe.co.nz/v1/Search/Property/';
   foreach ($_GET as $key => $value) {
